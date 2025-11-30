@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Karixa EVV Mobile Application - Love & Care Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <style>
+        /* Custom Colors based on prompt (Purple Theme) */
+        :root {
+            /* Royal Purple for Love & Care Theme */
+            --karixa-purple: #005B99; 
+            --karixa-green: #28A745;
+            --karixa-red: #DC3545;
+            --karixa-orange: #FFC107; /* Compliance Warnings */
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #fff;
+            -webkit-tap-highlight-color: transparent; /* Improves responsiveness */
+        }
+
+        /* Silky Card Design */
+        .silky-card {
+            background-color: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+            transition: transform 0.2s;
+        }
+
+        /* Mobile View Constraint */
+        .mobile-frame {
+            max-width: 420px;
+            height: 100vh;
+            margin: 10px auto;
+            position: relative;
+            overflow: hidden; /* Hide scrollbar outside the frame */
+            background-color: #f4f7f9;
+	  		border-radius: 12px;
+  			box-shadow:4px 4px 8px #b8b8b8,
+    		-4px -4px 8px #ffffff;
+        }
+
+        /* Custom Checkbox Style (Required for ADL refusal logic) */
+        .custom-checkbox:checked {
+            background-color: var(--karixa-purple);
+            border-color: var(--karixa-purple);
+        }
+
+        /* Signature Pad specific styles for touch support */
+        #signature-pad-canvas {
+            border: 1px solid #ccc;
+            border-radius: 0.5rem;
+            width: 100%;
+            height: 150px;
+            /* Prevents scrolling/zooming on the canvas area on mobile */
+            touch-action: none; 
+            background-color: #FAFAFA;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="mobile-frame">
+        <div id="screen-container" class="h-full w-full relative">
+
+            <div id="company-code-screen" class="hidden h-full p-6 flex flex-col justify-center items-center text-center">
+                <img src="logo.png" alt="Logo" Style="width:150px; height:52px;" class="mb-8">
+                <h1 class="text-2xl font-bold mb-4 text-gray-800">Welcome to Karixa!</h1>
+                <p class="text-gray-600 mb-8">Please enter your company code to get started.</p>
+                
+                <div class="w-full max-w-xs">
+                    <input type="text" id="company-code-input" placeholder="Company Code (e.g., 1007)" class="w-full p-4 border rounded-xl text-center text-xl font-mono focus:ring-4 focus:ring-purple-200 focus:border-karixa-purple">
+                    <button onclick="checkCompanyCode()" class="w-full mt-6 p-4 text-white font-semibold rounded-xl" style="background-color: var(--karixa-purple);">
+                        Continue
+                    </button>
+                </div>
+            </div>
+
+            <div id="login-screen" class="hidden h-full p-6 flex flex-col justify-center items-center text-center">
+                <img src="logo.png" alt="Logo" Style="width:150px; height:52px;" class="mb-8">
+                <h1 class="text-3xl font-bold mb-8 text-gray-800">Sign In</h1>
+                
+                <div class="w-full max-w-xs space-y-4">
+                    <input type="text" placeholder="Username / Caregiver ID" class="w-full p-4 border rounded-xl focus:ring-2 focus:ring-purple-200 focus:border-karixa-purple">
+                    <input type="password" placeholder="Password" class="w-full p-4 border rounded-xl focus:ring-2 focus:ring-purple-200 focus:border-karixa-purple">
+                    
+                    <button onclick="loginUser()" class="w-full p-4 text-white font-semibold rounded-xl" style="background-color: var(--karixa-purple);">
+                        Login
+                    </button>
+
+                    <div class="flex justify-between text-sm">
+                        <button onclick="alert('Forgot Password flow initiated.')" class="text-gray-600 hover:text-karixa-purple">Forgot Password?</button>
+                        <button onclick="showScreen('dashboard-screen'); setActiveNav('home')" class="text-gray-600 hover:text-karixa-purple">Skip Auth (Demo)</button>
+                    </div>
+                    
+                    <div class="pt-6 border-t mt-6 flex justify-center space-x-6">
+                        <button onclick="alert('Mock Face ID login')" class="text-gray-600 text-2xl hover:text-karixa-purple"><i class="fas fa-face-id"></i></button>
+                        <button onclick="alert('Mock Touch ID login')" class="text-gray-600 text-2xl hover:text-karixa-purple"><i class="fas fa-fingerprint"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="dashboard-screen" class="hidden h-full flex flex-col pt-4 pb-20 overflow-y-auto">
+                <div class="p-4">
+                    <h1 class="text-3xl font-extrabold text-gray-800">Good Morning!</h1>
+                    <p id="dashboard-date" class="text-sm text-gray-500"></p>
+                </div>
+
+                <div id="compliance-banner" class="mx-4 mb-4 p-4 silky-card" style="background-color: var(--karixa-orange);">
+                    <div class="flex items-center space-x-3">
+                        <i class="fas fa-exclamation-triangle text-xl text-white"></i>
+                        <p class="text-sm font-semibold text-white">
+                            ACTION REQUIRED: Your annual training is due next week.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="p-4">
+                    <h2 class="text-xl font-bold mb-3 text-gray-800">Today's Visits</h2>
+
+                    <div onclick="showScreen('client-details-screen')" class="mb-4 p-4 silky-card border-l-4" style="border-color: var(--karixa-red);">
+                        <div class="flex justify-between items-center">
+                            <p class="text-sm font-semibold text-gray-500">Action Required</p>
+                            <span class="text-xs font-bold px-2 py-0.5 rounded-full text-white" style="background-color: var(--karixa-red);">Clock In</span>
+                        </div>
+                        <h3 class="text-lg font-bold text-gray-800 mt-1">Harry Lingo</h3>
+                        <p class="text-sm text-gray-600">09:00 AM - 12:00 PM</p>
+                        <p class="text-xs text-gray-500 mt-1"><i class="fas fa-map-marker-alt mr-1"></i> 401 Central St, Anytown, CA</p>
+                    </div>
+
+                    <div class="mb-4 p-4 silky-card border-l-4" style="border-color: var(--karixa-green);">
+                        <div class="flex justify-between items-center">
+                            <p class="text-sm font-semibold text-gray-500">Completed</p>
+                            <span class="text-xs font-bold px-2 py-0.5 rounded-full text-white" style="background-color: var(--karixa-green);">Completed</span>
+                        </div>
+                        <h3 class="text-lg font-bold text-gray-800 mt-1">Jane Doe</h3>
+                        <p class="text-sm text-gray-600">07:00 AM - 08:00 AM</p>
+                        <p class="text-xs text-gray-500 mt-1"><i class="fas fa-map-marker-alt mr-1"></i> 123 Willow Ln, Sometown, CA</p>
+                    </div>
+
+                    <div class="mb-4 p-4 silky-card border-l-4" style="border-color: var(--karixa-purple);">
+                        <div class="flex justify-between items-center">
+                            <p class="text-sm font-semibold text-gray-500">Upcoming</p>
+                            <span class="text-xs font-bold px-2 py-0.5 rounded-full text-white" style="background-color: var(--karixa-purple);">Upcoming</span>
+                        </div>
+                        <h3 class="text-lg font-bold text-gray-800 mt-1">John Smith</h3>
+                        <p class="text-sm text-gray-600">01:00 PM - 05:00 PM</p>
+                        <p class="text-xs text-gray-500 mt-1"><i class="fas fa-map-marker-alt mr-1"></i> 789 Oak Ave, Othertown, CA</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="client-details-screen" class="hidden h-full flex flex-col pt-4 pb-20 overflow-y-auto">
+                <header class="p-4 flex items-center">
+                    <i class="fas fa-arrow-left text-xl text-gray-600 mr-4" onclick="showScreen('dashboard-screen')"></i>
+                    <h1 class="text-2xl font-bold text-gray-800">Visit Details</h1>
+                </header>
+
+                <div class="p-4">
+                    <div class="mb-4 p-4 silky-card text-white" style="background-color: var(--karixa-red);">
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-hand-paper text-xl"></i>
+                            <p class="text-sm font-semibold">
+                                CRITICAL SAFETY ALERT: Client has a severe peanut allergy. Use epi-pen if necessary.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div class="silky-card p-4 mb-4">
+                        <h2 class="text-xl font-extrabold text-gray-800 mb-2">Harry Lingo</h2>
+                        <p class="text-sm text-gray-600">Service: Personal Care - 3 Hours</p>
+                        <p class="text-sm text-gray-600"><i class="far fa-calendar-alt mr-2"></i> Today, 09:00 AM - 12:00 PM</p>
+                        <p class="text-sm text-gray-600"><i class="fas fa-map-marker-alt mr-2"></i> 401 Central St, Anytown, CA</p>
+
+                        <button onclick="showScreen('care-plan-screen')" class="w-full mt-4 p-3 text-white font-semibold rounded-xl" style="background-color: var(--karixa-purple);">
+                            View Care Plan
+                        </button>
+                    </div>
+
+                    <div id="clock-in-blocked" class="mb-4 p-4 silky-card border-l-4" style="border-color: var(--karixa-orange); display: none;">
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-lock text-xl" style="color: var(--karixa-orange);"></i>
+                            <p class="text-sm font-semibold text-gray-700">
+                                Clock-In Blocked: You are more than 15 minutes early.
+                            </p>
+                        </div>
+                    </div>
+
+                    <button onclick="showScreen('clock-in-confirm-screen')" class="w-full p-4 text-white font-semibold rounded-xl mt-4" style="background-color: var(--karixa-green);">
+                        <i class="fas fa-sign-in-alt mr-2"></i> Clock In Now
+                    </button>
+                </div>
+            </div>
+
+            <div id="clock-in-confirm-screen" class="hidden h-full p-6 flex flex-col justify-center items-center text-center">
+                <i class="fas fa-map-marker-alt text-6xl mb-4" style="color: var(--karixa-green);"></i>
+                <h1 class="text-2xl font-bold mb-2 text-gray-800">Clock-In Confirmation</h1>
+                <p class="text-gray-600 mb-6">
+                    Current Time: <span id="current-time">10:00 AM</span>
+                </p>
+                
+                <div class="silky-card p-4 w-full max-w-xs mb-6">
+                    <p class="font-semibold text-gray-700 mb-2">GPS Verification Status:</p>
+                    <p class="text-sm font-bold" style="color: var(--karixa-green);">
+                        <i class="fas fa-check-circle mr-2"></i> Validated - Within Geofence
+                    </p>
+                </div>
+
+                <p class="text-sm text-gray-500 mb-8">
+                    You are about to start your shift. Proceed to Face Match verification.
+                </p>
+
+                <button onclick="mockGPSCheck()" class="w-full max-w-xs p-4 text-white font-semibold rounded-xl" style="background-color: var(--karixa-purple);">
+                    Proceed to Face Match
+                </button>
+            </div>
+
+            <div id="face-match-screen" class="hidden h-full p-6 flex flex-col justify-center items-center text-center">
+                <i class="fas fa-camera text-6xl mb-4 text-gray-500"></i>
+                <h1 class="text-2xl font-bold mb-2 text-gray-800">Face Match Verification</h1>
+                <p class="text-gray-600 mb-6">
+                    Please center your face within the frame.
+                </p>
+
+                <div class="w-64 h-64 border-4 border-dashed rounded-full flex items-center justify-center text-gray-400 mb-8" style="border-color: var(--karixa-purple);">
+                    <i class="fas fa-user text-6xl"></i>
+                </div>
+
+                <button onclick="mockFaceMatch()" class="w-full max-w-xs p-4 text-white font-semibold rounded-xl" style="background-color: var(--karixa-purple);">
+                    Scan My Face
+                </button>
+            </div>
+
+            <div id="documentation-screen" class="hidden h-full flex flex-col pt-4 pb-20 overflow-y-auto">
+                <header class="p-4 flex justify-between items-center bg-white border-b sticky top-0 z-10">
+                    <h1 class="text-xl font-bold text-gray-800">Visit in Progress</h1>
+                    <div class="text-right">
+                        <p class="text-xs font-semibold text-gray-500">Visit Timer</p>
+                        <p id="visit-timer" class="text-lg font-extrabold" style="color: var(--karixa-red);">00:00:00</p>
+                    </div>
+                </header>
+
+                <div class="p-4">
+                    <h2 class="text-xl font-bold mb-3 text-gray-800">Tasks & ADLs</h2>
+
+                    <div class="silky-card p-4 mb-4 space-y-3" id="adl-list">
+                        <label class="flex items-center space-x-3 cursor-pointer">
+                            <input type="checkbox" id="adl-1" data-task="Mobility Assistance" class="custom-checkbox w-5 h-5 rounded adl-checkbox" style="accent-color: var(--karixa-purple);" onchange="toggleADL(this)">
+                            <span class="text-gray-800">Mobility Assistance (Transfer)</span>
+                        </label>
+                        <label class="flex items-center space-x-3 cursor-pointer">
+                            <input type="checkbox" id="adl-2" data-task="Medication Reminders" class="custom-checkbox w-5 h-5 rounded adl-checkbox" style="accent-color: var(--karixa-purple);" onchange="toggleADL(this)">
+                            <span class="text-gray-800">Medication Reminders</span>
+                        </label>
+                        <label class="flex items-center space-x-3 cursor-pointer">
+                            <input type="checkbox" id="adl-3" data-task="Meal Preparation" class="custom-checkbox w-5 h-5 rounded adl-checkbox" style="accent-color: var(--karixa-purple);" onchange="toggleADL(this)">
+                            <span class="text-gray-800">Meal Preparation</span>
+                        </label>
+                    </div>
+
+                    <h2 class="text-xl font-bold mb-3 text-gray-800">Caregiver Notes</h2>
+                    <div class="silky-card p-4 mb-4">
+                        <textarea id="caregiver-notes" placeholder="Document observations, issues, and client status here..." rows="4" class="w-full p-2 border rounded-lg focus:ring-1 focus:ring-karixa-purple"></textarea>
+                        <div class="flex space-x-2 mt-2">
+                            <button onclick="alert('Mock: Voice-to-Text activated.')" class="flex-1 p-2 text-xs font-semibold rounded-lg text-white" style="background-color: var(--karixa-purple);">
+                                <i class="fas fa-microphone mr-1"></i> Voice Note
+                            </button>
+                            <button onclick="mockAIGeneration()" class="flex-1 p-2 text-xs font-semibold rounded-lg text-white" style="background-color: var(--karixa-green);">
+                                <i class="fas fa-brain mr-1"></i> AI Summarize
+                            </button>
+                        </div>
+                         <div class="mt-4 border-t pt-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">AI-Generated Professional Note (Final)</label>
+                            <textarea id="ai-professional-notes" placeholder="Final, professional documentation note." rows="2" class="w-full p-2 border rounded-lg bg-gray-50" readonly></textarea>
+                        </div>
+                    </div>
+
+                    <h2 class="text-xl font-bold mb-3 text-gray-800">Client Signature</h2>
+                    <div class="silky-card p-4 mb-4">
+                        <canvas id="signature-pad-canvas"></canvas>
+                        <div class="flex justify-between mt-3 space-x-2">
+                            <input type="text" id="client-printed-name" placeholder="Client Printed Name" class="flex-1 p-2 border rounded-lg text-sm">
+                            <button onclick="clearSignature()" class="p-2 text-sm font-semibold rounded-lg text-gray-700 border border-gray-300 bg-gray-50 hover:bg-gray-100">
+                                <i class="fas fa-eraser"></i> Clear
+                            </button>
+                        </div>
+                        <button onclick="showSignatureBypassModal()" class="w-full mt-3 p-2 text-xs font-semibold rounded-lg text-gray-600 bg-gray-100 hover:bg-gray-200">
+                            <i class="fas fa-ban mr-1"></i> Signature Unavailable (Bypass)
+                        </button>
+                    </div>
+
+                    <button onclick="attemptClockOut()" class="w-full p-4 text-white font-semibold rounded-xl" style="background-color: var(--karixa-red);">
+                        <i class="fas fa-sign-out-alt mr-2"></i> Clock Out & Submit EVV
+                    </button>
+                </div>
+            </div>
+
+            <div id="timesheet-screen" class="hidden h-full flex flex-col pt-4 pb-20 overflow-y-auto p-4">
+                <h1 class="text-2xl font-bold text-gray-800 mb-4">Timesheet Summary</h1>
+                <div class="silky-card p-4 mb-4">
+                    <h2 class="font-bold text-lg mb-2">Last Week: 40.5 Hours</h2>
+                    <p class="text-sm text-karixa-green font-semibold">Status: Approved <i class="fas fa-check-circle ml-1"></i></p>
+                    <button class="mt-3 p-2 w-full text-white font-semibold rounded-lg" style="background-color: var(--karixa-purple);">View Details</button>
+                </div>
+                <div class="silky-card p-4">
+                    <h2 class="font-bold text-lg mb-2">This Week: 12.0 Hours</h2>
+                    <p class="text-sm text-gray-500 font-semibold">Status: Pending Submission</p>
+                    <button class="mt-3 p-2 w-full text-white font-semibold rounded-lg" style="background-color: var(--karixa-orange);">Submit Timesheet</button>
+                </div>
+            </div>
+
+            <div id="alerts-screen" class="hidden h-full flex flex-col pt-4 pb-20 overflow-y-auto p-4">
+                <h1 class="text-2xl font-bold text-gray-800 mb-4">Alerts & Notifications</h1>
+                
+                <div class="silky-card p-4 mb-3 border-l-4" style="border-color: var(--karixa-red);">
+                    <p class="font-bold text-sm text-red-700">URGENT ACTION REQUIRED</p>
+                    <p class="text-gray-700 text-sm">Client Harry Lingo has been hospitalized. Next visit cancelled. Contact supervisor immediately.</p>
+                    <p class="text-xs text-gray-500 mt-1">2 hours ago</p>
+                </div>
+
+                <div class="silky-card p-4 mb-3 border-l-4" style="border-color: var(--karixa-purple);">
+                    <p class="font-bold text-sm text-karixa-purple">Agency Update</p>
+                    <p class="text-gray-700 text-sm">New COVID-19 safety guidelines have been posted to your documents section.</p>
+                    <p class="text-xs text-gray-500 mt-1">1 day ago</p>
+                </div>
+            </div>
+
+            <div id="settings-screen" class="hidden h-full flex flex-col pt-4 pb-20 overflow-y-auto p-4">
+                <h1 class="text-2xl font-bold text-gray-800 mb-4">Settings & Profile</h1>
+                
+                <div class="silky-card p-4 mb-4">
+                    <h2 class="font-bold text-lg mb-3">Security</h2>
+                    <div class="space-y-3">
+                        <button onclick="alert('Password change initiated.')" class="flex justify-between items-center w-full p-2 text-gray-700 hover:bg-gray-50 rounded-lg">
+                            <span>Change Password</span> <i class="fas fa-chevron-right text-xs"></i>
+                        </button>
+                        <button onclick="alert('Biometric settings updated.')" class="flex justify-between items-center w-full p-2 text-gray-700 hover:bg-gray-50 rounded-lg">
+                            <span>Biometric Login (Face/Touch ID)</span> 
+                            <input type="checkbox" checked class="w-5 h-5 rounded custom-checkbox" style="accent-color: var(--karixa-purple);">
+                        </button>
+                    </div>
+                </div>
+
+                <div class="silky-card p-4 mb-4">
+                    <h2 class="font-bold text-lg mb-3">Support & Compliance</h2>
+                    <div class="space-y-3">
+                        <button onclick="alert('Viewing Compliance Documents.')" class="flex justify-between items-center w-full p-2 text-gray-700 hover:bg-gray-50 rounded-lg">
+                            <span>View Compliance Documents</span> <i class="fas fa-chevron-right text-xs"></i>
+                        </button>
+                        <button onclick="alert('Contacting Technical Support.')" class="flex justify-between items-center w-full p-2 text-gray-700 hover:bg-gray-50 rounded-lg">
+                            <span>Help & Support</span> <i class="fas fa-chevron-right text-xs"></i>
+                        </button>
+                        <button onclick="alert('Incident Report form opened.')" class="flex justify-between items-center w-full p-2 text-white font-semibold rounded-lg" style="background-color: var(--karixa-red);">
+                            <span><i class="fas fa-file-alt mr-2"></i> File New Incident Report</span> <i class="fas fa-chevron-right text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <button onclick="showScreen('login-screen')" class="w-full p-3 text-gray-700 font-semibold rounded-xl mt-4 border border-gray-300 bg-white">
+                    <i class="fas fa-sign-out-alt mr-2"></i> Logout
+                </button>
+            </div>
+
+
+            <div id="adl-refusal-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
+                <div class="silky-card p-6 w-full max-w-xs text-center">
+                    <i class="fas fa-times-circle text-4xl mb-4" style="color: var(--karixa-red);"></i>
+                    <h3 class="text-lg font-bold mb-2">ADL Refusal</h3>
+                    <p class="text-sm text-gray-700 mb-4">You have unmarked <span id="refused-adl-name" class="font-semibold"></span>. Please confirm the reason for the refusal.</p>
+                    <textarea id="refusal-reason" placeholder="Enter reason for refusal (e.g., Client refused service, client asleep, etc.)" rows="3" class="w-full p-2 border rounded-lg mb-4"></textarea>
+                    <button onclick="confirmADLRefusal()" class="w-full p-3 text-white font-semibold rounded-xl" style="background-color: var(--karixa-red);">Confirm Refusal</button>
+                    <button onclick="cancelADLRefusal()" class="w-full mt-2 p-3 text-gray-600 font-semibold rounded-xl bg-gray-100">Cancel & Re-check</button>
+                </div>
+            </div>
+
+            <div id="signature-bypass-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
+                <div class="silky-card p-6 w-full max-w-xs text-center">
+                    <i class="fas fa-hand-signature text-4xl mb-4" style="color: var(--karixa-orange);"></i>
+                    <h3 class="text-lg font-bold mb-2">Signature Unavailable</h3>
+                    <p class="text-sm text-gray-700 mb-4">You must provide a mandatory reason to bypass the client signature.</p>
+                    <select id="bypass-reason" class="w-full p-3 border rounded-lg mb-4">
+                        <option value="">-- Select Reason --</option>
+                        <option value="Client is asleep or unresponsive">Client is asleep or unresponsive</option>
+                        <option value="Client refused to sign">Client refused to sign</option>
+                        <option value="Client unable to sign due to physical limitations">Client unable to sign due to physical limitations</option>
+                        <option value="Documentation error - will sign next visit">Documentation error - will sign next visit</option>
+                    </select>
+                    <button onclick="confirmSignatureBypass()" class="w-full p-3 text-white font-semibold rounded-xl" style="background-color: var(--karixa-orange);">Confirm Bypass</button>
+                    <button onclick="hideSignatureBypassModal()" class="w-full mt-2 p-3 text-gray-600 font-semibold rounded-xl bg-gray-100">Cancel</button>
+                </div>
+            </div>
+
+            <div id="evv-exception-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
+                <div class="silky-card p-6 w-full max-w-xs text-center">
+                    <i class="fas fa-globe-americas text-4xl mb-4" style="color: var(--karixa-red);"></i>
+                    <h3 class="text-lg font-bold mb-2">EVV Geofence Violation</h3>
+                    <p class="text-sm text-gray-700 mb-4">You are outside the client's approved location. An exception is required.</p>
+                    <textarea id="exception-reason" placeholder="Enter reason for location exception (e.g., Client moved, took client to clinic, etc.)" rows="3" class="w-full p-2 border rounded-lg mb-4"></textarea>
+                    <button onclick="submitEVVException()" class="w-full p-3 text-white font-semibold rounded-xl" style="background-color: var(--karixa-red);">Submit Exception & Clock In</button>
+                    <button onclick="showScreen('client-details-screen')" class="w-full mt-2 p-3 text-gray-600 font-semibold rounded-xl bg-gray-100">Cancel</button>
+                </div>
+            </div>
+
+        </div> 
+        <nav id="bottom-nav" class="fixed bottom-0 w-full max-w-[420px] bg-white border-t silky-card rounded-b-none p-2 flex justify-around shadow-lg z-40">
+            <button class="nav-item flex flex-col items-center p-1 text-gray-500" data-screen="dashboard-screen" data-nav="home">
+                <i class="fas fa-home text-xl"></i>
+                <span class="text-xs">Home</span>
+            </button>
+            <button class="nav-item flex flex-col items-center p-1 text-gray-500" data-screen="timesheet-screen" data-nav="schedule">
+                <i class="far fa-calendar-alt text-xl"></i>
+                <span class="text-xs">Schedule</span>
+            </button>
+            <button class="nav-item flex flex-col items-center p-1 text-gray-500" data-screen="alerts-screen" data-nav="alerts">
+                <i class="fas fa-bell text-xl"></i>
+                <span class="text-xs">Alerts</span>
+            </button>
+            <button class="nav-item flex flex-col items-center p-1 text-gray-500" data-screen="settings-screen" data-nav="profile">
+                <i class="fas fa-user-circle text-xl"></i>
+                <span class="text-xs">Profile</span>
+            </button>
+        </nav>
+    </div>
+
+<script>
+    // --- Global State Variables ---
+    let currentScreen = 'company-code-screen';
+    let visitStartTime = null;
+    let visitTimerInterval = null;
+    let signaturePad = null;
+    let isSignatureBypassed = false;
+    let currentRefusalADL = null;
+
+    // --- Signature Pad Variables ---
+    let canvas, ctx;
+    let drawing = false;
+
+    // --- Utility Functions ---
+
+    function showScreen(screenId) {
+        document.querySelectorAll('#screen-container > div').forEach(screen => {
+            screen.style.display = 'none';
+        });
+        document.getElementById(screenId).style.display = 'flex'; // Use 'flex' for consistent layout
+        currentScreen = screenId;
+
+        // Special handling for screens that need logic (like the timer or signature pad)
+        if (screenId === 'documentation-screen') {
+            // Re-initialize or adjust the signature pad when this screen becomes visible
+            initSignaturePad(); 
+        }
+
+        // Handle visibility of the bottom nav bar
+        const nav = document.getElementById('bottom-nav');
+        if (['company-code-screen', 'login-screen', 'clock-in-confirm-screen', 'face-match-screen'].includes(screenId)) {
+            nav.classList.add('hidden');
+        } else {
+            nav.classList.remove('hidden');
+        }
+    }
+
+    function setActiveNav(navName) {
+        document.querySelectorAll('.nav-item').forEach(btn => {
+            if (btn.getAttribute('data-nav') === navName) {
+                btn.classList.add('text-karixa-purple');
+                btn.classList.remove('text-gray-500');
+            } else {
+                btn.classList.remove('text-karixa-purple');
+                btn.classList.add('text-gray-500');
+            }
+        });
+    }
+
+    // --- Authentication & Navigation Flow ---
+
+    function checkCompanyCode() {
+        // Mock validation: any input is accepted for prototype
+        showScreen('login-screen');
+    }
+
+    function loginUser() {
+        // Mock login successful
+        showScreen('dashboard-screen');
+        setActiveNav('home');
+        updateCurrentTime();
+    }
+
+    document.querySelectorAll('.nav-item').forEach(btn => {
+        btn.addEventListener('click', () => {
+            showScreen(btn.getAttribute('data-screen'));
+            setActiveNav(btn.getAttribute('data-nav'));
+        });
+    });
+
+    // --- EVV Clock-In Flow ---
+
+    function updateCurrentTime() {
+        const timeElement = document.getElementById('current-time');
+        if (timeElement) {
+            timeElement.textContent = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        }
+    }
+    setInterval(updateCurrentTime, 1000); // Update time every second
+
+    function mockGPSCheck() {
+        // Mock logic: 90% success, 10% fail to show exception modal
+        if (Math.random() < 0.1) {
+            showScreen('evv-exception-modal');
+        } else {
+            showScreen('face-match-screen');
+        }
+    }
+
+    function mockFaceMatch() {
+        // Mock success for prototype
+        alert('Face Match Successful!');
+        showScreen('documentation-screen');
+        startVisit();
+    }
+
+    function submitEVVException() {
+        if (!document.getElementById('exception-reason').value.trim()) {
+            alert('Please enter a reason for the EVV Exception.');
+            return;
+        }
+        alert('EVV Exception submitted. Clock-In initiated.');
+        document.getElementById('evv-exception-modal').style.display = 'none';
+        showScreen('documentation-screen');
+        startVisit();
+    }
+    
+    // --- Visit Timer Logic ---
+
+    function startVisit() {
+        visitStartTime = Date.now();
+        if (visitTimerInterval) clearInterval(visitTimerInterval);
+        visitTimerInterval = setInterval(updateVisitTimer, 1000);
+    }
+
+    function updateVisitTimer() {
+        if (visitStartTime) {
+            const elapsed = Date.now() - visitStartTime;
+            const hours = Math.floor(elapsed / (1000 * 60 * 60));
+            const minutes = Math.floor((elapsed % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((elapsed % (1000 * 60)) / 1000);
+
+            const timerText = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            document.getElementById('visit-timer').textContent = timerText;
+        }
+    }
+
+    // --- ADL Refusal Logic ---
+    function toggleADL(checkbox) {
+        if (!checkbox.checked) {
+            currentRefusalADL = checkbox;
+            document.getElementById('refused-adl-name').textContent = checkbox.getAttribute('data-task');
+            document.getElementById('adl-refusal-modal').style.display = 'flex';
+        }
+    }
+
+    function confirmADLRefusal() {
+        const reason = document.getElementById('refusal-reason').value.trim();
+        if (!reason) {
+            alert('The refusal reason is mandatory.');
+            return;
+        }
+        
+        // Log the refusal (in a real app, this would be an API call)
+        console.log(`ADL Refusal for ${currentRefusalADL.getAttribute('data-task')}: ${reason}`);
+        alert(`Refusal logged for ${currentRefusalADL.getAttribute('data-task')}.`);
+        
+        document.getElementById('adl-refusal-modal').style.display = 'none';
+        currentRefusalADL.setAttribute('data-refused', 'true');
+        // Clear reason for next use
+        document.getElementById('refusal-reason').value = ''; 
+    }
+
+    function cancelADLRefusal() {
+        // User cancelled, re-check the box
+        currentRefusalADL.checked = true;
+        document.getElementById('adl-refusal-modal').style.display = 'none';
+    }
+
+    // --- Caregiver Notes Mock ---
+    function mockAIGeneration() {
+        const notes = document.getElementById('caregiver-notes').value.trim();
+        if (!notes) {
+            document.getElementById('ai-professional-notes').value = "Client appeared well and tasks were completed as scheduled. No unusual observations.";
+            return;
+        }
+
+        // Mock AI summarization based on input
+        const summary = `Client received services. Tasks completed included: Mobility Assistance, Medication Reminders. ${notes.length > 50 ? 'Detailed notes provided.' : 'Brief notes provided.'} Client confirmed service completion.`;
+        document.getElementById('ai-professional-notes').value = summary;
+    }
+
+    // --- Signature Pad Logic ---
+
+    function initSignaturePad() {
+        if (signaturePad) return; // Already initialized
+
+        canvas = document.getElementById('signature-pad-canvas');
+        ctx = canvas.getContext('2d');
+        
+        // Ensure canvas dimensions match container size (Crucial Fix)
+        const container = canvas.parentElement;
+        canvas.width = container.clientWidth - 32; // Account for padding
+        canvas.height = 150;
+        
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        
+        // Standard mouse and touch listeners
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mousemove', draw);
+        
+        canvas.addEventListener('touchstart', startDrawing);
+        canvas.addEventListener('touchend', stopDrawing);
+        canvas.addEventListener('touchmove', draw);
+        
+        signaturePad = true;
+        isSignatureBypassed = false;
+        document.getElementById('client-printed-name').value = '';
+    }
+
+    function getCoords(event) {
+        let rect = canvas.getBoundingClientRect();
+        let clientX = event.clientX;
+        let clientY = event.clientY;
+
+        if (event.touches && event.touches.length > 0) {
+            clientX = event.touches[0].clientX;
+            clientY = event.touches[0].clientY;
+        }
+        
+        return {
+            x: clientX - rect.left,
+            y: clientY - rect.top
+        };
+    }
+
+    function startDrawing(e) {
+        e.preventDefault(); 
+        drawing = true;
+        isSignatureBypassed = false; // Invalidates any previous bypass
+        ctx.beginPath();
+        let coords = getCoords(e);
+        ctx.moveTo(coords.x, coords.y);
+    }
+
+    function stopDrawing() {
+        drawing = false;
+        ctx.closePath();
+    }
+
+    function draw(e) {
+        if (!drawing) return;
+        e.preventDefault();
+        let coords = getCoords(e);
+        ctx.lineTo(coords.x, coords.y);
+        ctx.stroke();
+    }
+
+    function clearSignature() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        isSignatureBypassed = false;
+        document.getElementById('client-printed-name').value = '';
+    }
+
+    function isCanvasEmpty() {
+        // Checks if the canvas is entirely white/transparent
+        const pixelData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        return pixelData.every(channel => channel === 0 || channel === 255); // Simple check for all zero (transparent) or all 255 (white)
+    }
+
+    function showSignatureBypassModal() {
+        document.getElementById('signature-bypass-modal').style.display = 'flex';
+    }
+
+    function hideSignatureBypassModal() {
+        document.getElementById('signature-bypass-modal').style.display = 'none';
+    }
+
+    function confirmSignatureBypass() {
+        const reason = document.getElementById('bypass-reason').value;
+        if (!reason) {
+            alert('A mandatory reason must be selected to bypass the signature.');
+            return;
+        }
+        
+        isSignatureBypassed = true;
+        clearSignature(); // Clear the pad if any accidental marks were made
+        document.getElementById('signature-bypass-modal').style.display = 'none';
+        alert(`Signature bypassed successfully. Reason logged: ${reason}`);
+    }
+
+    // --- Clock-Out Validation ---
+
+    function attemptClockOut() {
+        // 1. Check for Completed ADLs
+        const allADLs = document.querySelectorAll('.adl-checkbox');
+        const completedCount = document.querySelectorAll('.adl-checkbox:checked').length;
+        if (completedCount === 0 && allADLs.length > 0) {
+             if (!confirm("Warning: No ADLs/Tasks were documented as completed. Continue with Clock-Out?")) {
+                return;
+             }
+        }
+        
+        // 2. Check Signature/Bypass Validation
+        const signaturePresent = !isCanvasEmpty();
+        const namePresent = document.getElementById('client-printed-name').value.trim() !== '';
+
+        if (!isSignatureBypassed && (!signaturePresent || !namePresent)) {
+            alert('ERROR: The client signature and printed name are mandatory. Please obtain a signature or use the Signature Bypass option.');
+            return;
+        }
+
+        // 3. Final submission (Mock)
+        endVisit();
+    }
+
+    function endVisit() {
+        clearInterval(visitTimerInterval);
+        visitTimerInterval = null;
+        visitStartTime = null;
+        document.getElementById('visit-timer').textContent = '00:00:00';
+
+        // MOCK SUBMISSION
+        alert("EVV Submitted Successfully! Clock-Out Complete. (All documentation sent to agency.)");
+
+        // Reset state for next visit
+        clearSignature();
+        document.getElementById('caregiver-notes').value = '';
+        document.getElementById('ai-professional-notes').value = ''; 
+        document.getElementById('client-printed-name').value = '';
+        isSignatureBypassed = false;
+        
+        // Reset ADLs
+        Array.from(document.querySelectorAll('.adl-checkbox:checked')).forEach(cb => {
+            cb.checked = false;
+            cb.removeAttribute('data-refused');
+        });
+
+        showScreen('dashboard-screen');
+    }
+
+    // --- Initial setup on page load ---
+    document.addEventListener('DOMContentLoaded', () => {
+        const date = new Date();
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        document.getElementById('dashboard-date').textContent = date.toLocaleDateString('en-US', options);
+
+        // Set initial active nav state
+        setActiveNav('home');
+        
+        // Show company code screen initially
+        showScreen('company-code-screen');
+        
+        // Ensure all modals are initially hidden
+        document.getElementById('adl-refusal-modal').style.display = 'none';
+        document.getElementById('signature-bypass-modal').style.display = 'none';
+        document.getElementById('evv-exception-modal').style.display = 'none';
+    });
+
+</script>
+
+</body>
+</html>
